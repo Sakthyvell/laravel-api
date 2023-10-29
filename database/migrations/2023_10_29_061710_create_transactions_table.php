@@ -14,8 +14,11 @@ return new class extends Migration
         Schema::create('transactions', function (Blueprint $table) {
             $table->id('tr_id');
             $table->dateTime('tr_createdt')->default(now());
-            $table->foreignId('tr_uuid')->constrained('legal_entities');
+            $table->uuid('tr_entity');
+            $table->foreign('tr_entity')->references('le_id')->on('legal_entities')->cascadeOnDelete();
+            $table->uuid('tr_transaction_id');
             $table->float('tr_amount');
+            $table->float('tr_commission');
             $table->string('tr_type');
         });
     }

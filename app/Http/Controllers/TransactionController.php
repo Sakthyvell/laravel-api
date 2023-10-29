@@ -12,6 +12,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpFoundation\Test\Constraint\ResponseFormatSame;
 
 class TransactionController extends Controller
 {
@@ -34,7 +35,7 @@ class TransactionController extends Controller
          $entityData->id = $requestData['entity_id'];
          $entity = new EntityManager($entityData);
          $entityData = $entity->getEntity();
-         
+
          $transactionData = new TransactionData();
          $transactionData->entityId = $entityData->id;
          $transaction = new TransactionProcessor($transactionData);
@@ -66,16 +67,18 @@ class TransactionController extends Controller
 
             $transactionData = new TransactionData();
             $transactionKey = $request->header('idempotent-key');
+            if(empty($transactionKey)) return Response(["Error" => "Missing key"], 400);
             $transactionData->action = $requestData['action'];
             $transactionData->amount = $requestData['amount'];
+            $transactionData->transactionId = $transactionKey;
    
             $dbHelper = new DB();
             $dbHelper::beginTransaction();
             $transaction = new TransactionProcessor($transactionData, $dbHelper, $transactionKey);
-            $entity = $transaction->completeTransaction();
+            $transaction->completeTransaction();
             $dbHelper::commit();
 
-            return Response(json_decode(json_encode($entity), true));
+            return Response([]);
          }catch(Exception $e){
             return Response(["Error" => $e->getMessage()], $e->getCode());
          }

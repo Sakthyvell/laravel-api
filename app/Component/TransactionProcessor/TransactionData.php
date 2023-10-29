@@ -12,4 +12,7 @@ class TransactionData {
 
     /** @var string */
     public $entityId = '';
+
+    /** @var string */
+    public $transactionId = '';
 }

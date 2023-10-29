@@ -42,7 +42,6 @@ class TransactionProcessor{
 
       protected function getTransactionEntity()
       {
-        var_dump($this->key);
         $entityData = $this->dataHandler->getTransactionEntity($this->key);
         if(empty($entityData[0]->le_id)) throw new Exception('Invalid Key', 404);
         $entity = new EntityData();
@@ -64,22 +63,19 @@ class TransactionProcessor{
       {
         $currentTransaction = $this->checkExistingTransaction($this->transaction->entityId);
         if(!empty($currentTransaction)) throw new Exception('Ongoing transaction present', 429);
-        return $this->dataHandler->createTransactionKey($this->transaction->entityId)->tq_uuid;
+        return $this->dataHandler->createTransactionKey($this->transaction->entityId)->tq_id;
       }
 
       public function completeTransaction()
       {
         $this->performTransaction($this->entity);
-        $this->dataHandler->generateTransactionRecord($this->transaction, $this->entity->balance);
+        $this->dataHandler->generateTransactionRecord($this->transaction);
         $this->dataHandler->deleteTransactionKey($this->key);
-
-        return $this->entity;
       }
 
       protected function performTransaction()
       {
         $this->transaction->entityId = $this->entity->id;
-        $this->transaction->commission = $this->transaction->amount*COMMISSION_PERCENTAGE;
         
         if($this->transaction->action == TransactionAction::DEPOSIT){
           $newBalance = bcadd($this->entity->balance, $this->transaction->amount, 2);
@@ -90,7 +86,5 @@ class TransactionProcessor{
         if($newBalance < 0) throw new Exception('Insufficient Funds', 400);
 
         $this->dataHandler->updateEntityBalance($this->entity->id, $newBalance);
-
-        $this->entity->balance = $newBalance;
       }
 }

@@ -68,8 +68,6 @@ class TransactionControllerTest extends TestCase
             'idempotent-key' => $key,
         ]);
         
-        var_dump($response);
-        die;
         $response->assertStatus(200);
         $response->assertJson([
             "id" => "123456789",
