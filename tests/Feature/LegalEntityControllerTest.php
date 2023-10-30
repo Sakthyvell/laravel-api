@@ -11,17 +11,21 @@ class LegalEntityControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function testGetEntityListValidResponse()
+    public function testShouldReturnSuccessForEntityList()
     {
-        $response = $this->get('api/entity');
-
-        $response->assertStatus(200);
-
-        $response->assertJsonIsArray();
-
+        $this->get('api/entity')
+            ->assertStatus(200)
+            ->assertJsonIsArray();
     }
 
-    public function testGetEntityValidResponse()
+    public function testShouldThrowErrorIfInvalidEntityIdPassed()
+    {
+        $this->get('api/entity/1')
+            ->assertStatus(404)
+            ->assertJsonStructure(['Error']);
+    }
+
+    public function testShouldReturnSuccessIfValidEntityIdPassed()
     {
         DB::table('legal_entities')
             ->insert([
@@ -31,11 +35,9 @@ class LegalEntityControllerTest extends TestCase
             'le_address' => '123 Street 456',
             'le_balance' => 12345,
         ]);
-
+        
         $response = $this->get("api/entity/123456789");
-
         $response->assertStatus(200);
-
         $response->assertJson([
             "id" => '123456789',
             "tax_number" => "123456789",
@@ -47,11 +49,5 @@ class LegalEntityControllerTest extends TestCase
         DB::table('legal_entities')
             ->where('le_id', '=', '123456789')
             ->delete();
-    }
-
-    public function testGetEntityInalidResponse()
-    {
-        $response = $this->get("api/entity/123");
-        $response->assertStatus(404);
     }
 }

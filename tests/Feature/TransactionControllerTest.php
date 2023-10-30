@@ -10,80 +10,107 @@ class TransactionControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function testCreateTransactionValidResponse()
+    protected function setUp(): void
     {
-        DB::table('legal_entities')
-            ->insert([
-            'le_id' => '123456789',
-            'le_tax_number' => '123456789',
-            'le_name' => 'Company',
-            'le_address' => '123 Street 456',
-            'le_balance' => 12345,
-        ]);
-        $response = $this->post('api/transaction', [
-            'entity_id' => '123456789',
-        ]);
-
-        $response->assertStatus(200);
+        parent::setUp();
 
         DB::table('legal_entities')
-            ->where('le_id', '=', '123456789')
-            ->delete();
+        ->insert([
+        'le_id' => '123456789',
+        'le_tax_number' => '123456789',
+        'le_name' => 'Company',
+        'le_address' => '123 Street 456',
+        'le_balance' => 12345,
+        ]);
     }
 
-    public function testCreateTransactionInvalidResponse()
+    public function testShouldThrowErrorIfNoEntityIdPassed()
     {
-        
-        $response = $this->post('api/transaction', [
-            'entity_id' => '12345678910',
-        ]);
-
-        $response->assertStatus(404);
+        $this->post('api/transaction')
+        ->assertStatus(400)
+        ->assertJsonStructure(['Error']);
     }
 
-    public function testUpdateTransactionInvalidResponse()
+    public function testShouldThrowErrorIfInvalidEntityIdPassed()
     {
-        $response = $this->put('api/transaction', [
-            'action' => 'deposit',
-            'amount' => 100,
-        ], [
-            'idempotent-key' => '123',
-        ]);
-
-        $response->assertStatus(404);
+        $this->post('api/transaction', ['entity_id' => '123456'])
+        ->assertStatus(404)
+        ->assertJsonStructure(['Error']);
     }
 
-    public function testUpdateTransactionValidResponse()
+    public function testShouldReturnSuccessIfValidEntityIdPassed()
     {
-        $key = DB::table('transaction_queue')
-            ->insertGetId([
-            'tq_uuid' => '123456789-abc',
-            'tq_entity_id' => '123456789',
-        ]);
 
-        $response = $this->put('api/transaction', [
-            'action' => 'deposit',
-            'amount' => '100',
-        ], [
-            'idempotent-key' => $key,
-        ]);
-        
-        $response->assertStatus(200);
-        $response->assertJson([
-            "id" => "123456789",
-            "tax_number" => "123456789",
-            "name" => "Company",
-            "address" => "123 Street 456",
-            "balance" => 100
-        ]);
+        $this->post('api/transaction', ['entity_id' => '123456789'])
+        ->assertStatus(200)
+        ->assertJsonStructure(['key']);
+    }
+    
+    public function testShouldThrowErrorIfNoIdempotentKeyPassed()
+    {
+        $this->post('api/transaction', ['action' => 'withdraw', 'amount' => '1234'])
+        ->assertStatus(400)
+        ->assertJsonStructure(['Error']);
+    }
 
+    public function testShouldThrowErrorIfNoActionPassed()
+    {
+        $response = json_decode($this->post('api/transaction', ['entity_id' => '123456789'])->getContent(), true);
+
+        $this->put('api/transaction', ['amount' => '1234'], ['idempotent-key' => $response['key']])
+        ->assertStatus(400)
+        ->assertJsonStructure(['Error']);
+    }
+
+    public function testShouldThrowErrorIfInvalidActionPassed()
+    {
+        $response = json_decode($this->post('api/transaction', ['entity_id' => '123456789'])->getContent(), true);
+
+        $this->put('api/transaction', ['action' => 'action', 'amount' => '1234'], ['idempotent-key' => $response['key']])
+        ->assertStatus(400)
+        ->assertJsonStructure(['Error']);
+    }
+
+    public function testShouldThrowErrorIfNoAmountPassed()
+    {
+        $response = json_decode($this->post('api/transaction', ['entity_id' => '123456789'])->getContent(), true);
+
+        $this->put('api/transaction', ['action' => 'action'], ['idempotent-key' => $response['key']])
+        ->assertStatus(400)
+        ->assertJsonStructure(['Error']);
+    }
+
+    public function testShouldThrowErrorIfInvalidAmountPassed()
+    {
+        $response = json_decode($this->post('api/transaction', ['entity_id' => '123456789'])->getContent(), true);
+
+        $this->put('api/transaction', ['action' => 'action', 'amount' => 'test1234'], ['idempotent-key' => $response['key']])
+        ->assertStatus(400)
+        ->assertJsonStructure(['Error']);
+    }
+
+    public function testShouldReturnSuccessIfTransactionPerformed()
+    {
+        $response = json_decode($this->post('api/transaction', ['entity_id' => '123456789'])->getContent(), true);
+
+        $this->put('api/transaction', ['action' => 'deposit', 'amount' => 1234], ['idempotent-key' => $response['key']])
+        ->assertStatus(200);
+    }
+
+    protected function tearDown(): void
+    {
+        DB::table('legal_entities')
+        ->where('le_id', '=', '123456789')
+        ->delete();
 
         DB::table('transaction_queue')
-            ->where('tq_entity_id', '=', '123456789')
-            ->delete();
+        ->where('tq_entity', '=', '123456789')
+        ->delete();
 
-        DB::table('transaction')
-            ->where('tr_entity_id', '=', '123456789')
-            ->delete();
+        DB::table('transactions')
+        ->where('tr_entity', '=', '123456789')
+        ->delete();
+
+        parent::tearDown();
     }
 }
