@@ -44,7 +44,6 @@ class EntityManager{
 
     public function getEntityList() : array
     {
-        Cache::forget('entity-list');
         return Cache::remember('entity-list', 60*60*24, function(){
            return $this->dataHandler->getEntityList();
         });
